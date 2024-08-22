@@ -426,4 +426,29 @@ extension JournalServiceLive {
             throw NetworkError.badResponse
         }
     }
+    
+    func simplePostRequest() async {
+        guard let url = URL(string: "http://localhost:8000/register") else { return }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "accept")
+
+        let body: [String: Any] = ["username": "teste", "password": "123456"]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            if let httpResponse = response as? HTTPURLResponse {
+                print("Status code: \(httpResponse.statusCode)")
+                if let responseBody = String(data: data, encoding: .utf8) {
+                    print("Response: \(responseBody)")
+                }
+            }
+        } catch {
+            print("Error: \(error.localizedDescription)")
+        }
+    }
 }

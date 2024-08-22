@@ -83,4 +83,6 @@ protocol JournalService {
     /// Delete a media with a given id.
     /// - Parameter mediaId: Media id.
     func deleteMedia(withId mediaId: Media.ID) async throws
+    
+    func simplePostRequest() async
 }

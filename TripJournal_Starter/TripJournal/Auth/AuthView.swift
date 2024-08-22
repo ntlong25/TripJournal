@@ -116,7 +116,8 @@ struct AuthView: View {
         isLoading = true
         do {
             try validateForm()
-            try await journalService.register(username: username, password: password)
+//            try await journalService.register(username: username, password: password)
+            await journalService.simplePostRequest()
         } catch {
             self.error = error
         }
