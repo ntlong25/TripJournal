@@ -1,12 +1,6 @@
 import Foundation
 import MapKit
 
-/// Represents  the parameters to login the user
-struct LoginRequest: Codable {
-    let username: String
-    let password: String
-}
-
 /// Represents  a token that is returns when the user authenticates.
 struct Token: Codable {
     let accessToken: String

@@ -33,10 +33,10 @@ struct EventForm: View {
 
         switch mode {
         case .add:
-            title = "Add Event"
+            title = String("Add Event")
 
         case let .edit(event):
-            title = "Edit \(event.name)"
+            title = String("Edit \(event.name)")
             _name = .init(initialValue: event.name)
             _note = .init(initialValue: event.note)
             _date = .init(initialValue: event.date)
@@ -87,7 +87,7 @@ struct EventForm: View {
     private var form: some View {
         Form {
             Section("Name") {
-                TextField("Name", text: $name, prompt: Text("Visit to the Van Gogh Museum"))
+                TextField("Name", text: $name, prompt: Text("Visit to the Ho Chi Minh Museum"))
             }
             Section("Note") {
                 TextField(

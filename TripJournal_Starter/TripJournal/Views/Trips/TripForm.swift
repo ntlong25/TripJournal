@@ -20,8 +20,8 @@ struct TripForm: View {
     struct ValidationError: LocalizedError {
         var errorDescription: String?
 
-        static let emptyName = Self(errorDescription: "Please enter a name.")
-        static let invalidDates = Self(errorDescription: "Start date should be before end date.")
+        static let emptyName = Self(errorDescription: String("Please enter a name."))
+        static let invalidDates = Self(errorDescription: String("Start date should be before end date."))
     }
 
     init(mode: Mode, updateHandler: @escaping () -> Void) {
@@ -30,10 +30,10 @@ struct TripForm: View {
 
         switch mode {
         case .add:
-            title = "Add Trip"
+            title = String("Add Trip")
 
         case let .edit(trip):
-            title = "Edit \(trip.name)"
+            title = String("Edit \(trip.name)")
             _name = .init(initialValue: trip.name)
             _startDate = .init(initialValue: trip.startDate)
             _endDate = .init(initialValue: trip.endDate)

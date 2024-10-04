@@ -18,12 +18,12 @@ async def create_new_user(
     request: Request, user: schemas.UserCreate, db=Depends(get_db)
 ):
     db_user = (
-        db.query(models.User).filter(models.User.username == user.username).first()
+        db.query(models.User).filter(models.User.username == user.username or models.User.email == user.email).first()
     )
     if db_user:
-        raise HTTPException(status_code=400, detail="Username already registered")
+        raise HTTPException(status_code=400, detail="Username or Email already registered")
     hashed_password = get_password_hash(user.password)
-    db_user = models.User(username=user.username, hashed_password=hashed_password)
+    db_user = models.User(fullname=user.fullname, email=user.email, username=user.username, hashed_password=hashed_password)
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
@@ -51,4 +51,4 @@ async def login_for_access_token(
     access_token = create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
-    return schemas.Token(access_token=access_token, token_type="bearer")
+    return schemas.Token(access_token=access_token, token_type="bearer", user=user)

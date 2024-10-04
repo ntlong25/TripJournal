@@ -15,10 +15,12 @@ protocol JournalService {
     ///   - password: Password.
     /// - Returns: A token that can be used to interact with the API.
     @discardableResult
-    func register(username: String, password: String) async throws -> Token
+    func register(fullname: String, email: String, username: String, password: String) async throws -> Token
 
     /// Login to an existing account.
     /// - Parameters:
+    ///   - fullname: Fullname.
+    ///   - email: Email.
     ///   - username: Username.
     ///   - password: Password.
     /// - Returns: A token that can be used to interact with the API.
@@ -83,6 +85,4 @@ protocol JournalService {
     /// Delete a media with a given id.
     /// - Parameter mediaId: Media id.
     func deleteMedia(withId mediaId: Media.ID) async throws
-    
-    func simplePostRequest() async
 }

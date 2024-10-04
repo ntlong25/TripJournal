@@ -40,14 +40,42 @@ struct LoadingOverlayModifier: ViewModifier {
     }
 }
 
+struct RoundedCorner: Shape {
+    var radius: CGFloat = .infinity
+    var corners: UIRectCorner = .allCorners
+    
+    func path(in rect: CGRect) -> Path {
+        let path = UIBezierPath(roundedRect: rect, byRoundingCorners: corners, cornerRadii: CGSize(width: radius, height: radius))
+        return Path(path.cgPath)
+    }
+}
+
 extension View {
     func loadingOverlay(_ isLoading: Bool) -> some View {
         modifier(LoadingOverlayModifier(isLoading: isLoading))
+    }
+    
+    func cornerRadius(_ radius: CGFloat, corners: UIRectCorner) -> some View {
+        clipShape(RoundedCorner(radius: radius, corners: corners))
     }
 }
 
 extension Collection {
     var nonEmpty: Self? {
         return isEmpty ? nil : self
+    }
+}
+
+extension LinearGradient {
+    static let background = LinearGradient(
+        gradient: Gradient(colors: [Color.blue.opacity(0.6), Color.green.opacity(0.4)]),
+        startPoint: .top,
+        endPoint: .bottom
+    )
+}
+
+extension String {
+    var isEmptyOrWhitespace: Bool {
+        return self.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 }

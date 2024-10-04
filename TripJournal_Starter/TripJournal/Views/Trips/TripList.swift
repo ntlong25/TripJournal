@@ -15,50 +15,54 @@ struct TripList: View {
     // MARK: - Body
 
     var body: some View {
-        NavigationStack {
-            content
-                .navigationTitle("Trips")
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar(content: toolbar)
-                .onAppear {
-                    addAction = { tripFormMode = .add }
-                }
-                .navigationDestination(for: Trip.self) { trip in
-                    TripDetails(trip: trip, addAction: $addAction) {
-                        Task {
-                            await fetchTrips()
+        ZStack {
+            LinearGradient.background
+                .edgesIgnoringSafeArea(.all)
+            NavigationStack {
+                content
+                    .navigationTitle("Trips")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar(content: toolbar)
+                    .onAppear {
+                        addAction = { tripFormMode = .add }
+                    }
+                    .navigationDestination(for: Trip.self) { trip in
+                        TripDetails(trip: trip, addAction: $addAction) {
+                            Task {
+                                await fetchTrips()
+                            }
                         }
                     }
-                }
-                .sheet(item: $tripFormMode) { mode in
-                    TripForm(mode: mode) {
-                        Task {
-                            await fetchTrips()
+                    .sheet(item: $tripFormMode) { mode in
+                        TripForm(mode: mode) {
+                            Task {
+                                await fetchTrips()
+                            }
                         }
                     }
-                }
-                .confirmationDialog(
-                    "Log out?",
-                    isPresented: $isLogoutConfirmationDialogPresented,
-                    titleVisibility: .visible,
-                    actions: {
-                        Button("Log out", role: .destructive) {
-                            journalService.logOut()
+                    .confirmationDialog(
+                        "Log out?",
+                        isPresented: $isLogoutConfirmationDialogPresented,
+                        titleVisibility: .visible,
+                        actions: {
+                            Button("Log out", role: .destructive) {
+                                journalService.logOut()
+                            }
+                        },
+                        message: {
+                            Text("You will need to log in to access your account again.")
                         }
-                    },
-                    message: {
-                        Text("You will need to log in to access your account again.")
-                    }
-                )
-                .loadingOverlay(isLoading)
-        }
-        .onChange(of: scenePhase) { _, newValue in
-            if newValue == .background {
-                checkSession()
+                    )
+                    .loadingOverlay(isLoading)
             }
-        }
-        .task {
-            await fetchTrips()
+            .onChange(of: scenePhase) { _, newValue in
+                if newValue == .background {
+                    checkSession()
+                }
+            }
+            .task {
+                await fetchTrips()
+            }
         }
     }
 
@@ -164,4 +168,16 @@ struct TripList: View {
         }
         isLoading = false
     }
+}
+
+#Preview {
+    struct Preview: View {
+        @State private var addAction: () -> Void = {  }
+        
+        var body: some View {
+            TripList(addAction: $addAction)
+        }
+    }
+    
+    return Preview()
 }

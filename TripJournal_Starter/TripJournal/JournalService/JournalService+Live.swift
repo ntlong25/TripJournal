@@ -12,17 +12,6 @@ enum HTTPMethods: String {
     case POST, GET, PUT, DELETE
 }
 
-enum MIMEType: String {
-    case JSON = "application/json"
-    case form = "application/x-www-form-urlencoded"
-}
-
-enum HTTPHeaders: String {
-    case accept
-    case contentType = "Content-Type"
-    case authorization = "Authorization"
-}
-
 enum NetworkError: Error {
     case badUrl
     case badResponse
@@ -38,7 +27,7 @@ extension SessionError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .expired:
-            return "Your session has expired. Please log in again."
+            return String("Your session has expired. Please log in again.")
         }
     }
 }
@@ -126,8 +115,8 @@ class JournalServiceLive: JournalService {
         }
     }
     
-    func register(username: String, password: String) async throws -> Token {
-        let request = try createRegisterRequest(username: username, password: password)
+    func register(fullname: String, email: String, username: String, password: String) async throws -> Token {
+        let request = try createRegisterRequest(fullname: fullname, email: email, username: username, password: password)
         
         return try await performNetworkRequest(request, responseType: Token.self)
     }
@@ -149,20 +138,18 @@ class JournalServiceLive: JournalService {
         
         var requestURL = URLRequest(url: EndPoints.trips.url)
         requestURL.httpMethod = HTTPMethods.POST.rawValue
-        requestURL.addValue(MIMEType.JSON.rawValue, forHTTPHeaderField: HTTPHeaders.accept.rawValue)
-        requestURL.addValue("Bearer \(token.accessToken)", forHTTPHeaderField: HTTPHeaders.authorization.rawValue)
-        requestURL.addValue(MIMEType.JSON.rawValue, forHTTPHeaderField: HTTPHeaders.contentType.rawValue)
+        requestURL.addValue("application/json", forHTTPHeaderField: "accept")
+        requestURL.addValue("Bearer \(token.accessToken)", forHTTPHeaderField: "Authorization")
+        requestURL.addValue("application/json", forHTTPHeaderField: "Content-Type")
         
         let dateFormatter = ISO8601DateFormatter()
         dateFormatter.formatOptions = [.withInternetDateTime]
         
-        let tripData: [String: Any] = [
-            "name": trip.name,
-            "start_date": dateFormatter.string(from: trip.startDate),
-            "end_date": dateFormatter.string(from: trip.endDate),
-        ]
+        let tripData = TripRequest(name: trip.name,
+                                   startDate: dateFormatter.string(from: trip.startDate),
+                                   endDate: dateFormatter.string(from: trip.endDate))
         
-        requestURL.httpBody = try JSONSerialization.data(withJSONObject: tripData)
+        requestURL.httpBody = try JSONEncoder().encode(tripData)
         return try await performNetworkRequest(requestURL, responseType: Trip.self)
         
     }
@@ -171,15 +158,15 @@ class JournalServiceLive: JournalService {
         guard let token = token else {
             throw NetworkError.invalidValue
         }
-        // 3.a Check network connection status using networkMonitor; if offline, load trips from cache
+        // Check network connection status using networkMonitor; if offline, load trips from cache
         if !networkMonitor.isConnected {
             return tripCacheManager.loadTrips()
         }
         
         var request = URLRequest(url: EndPoints.trips.url)
         request.httpMethod = HTTPMethods.GET.rawValue
-        request.addValue(MIMEType.JSON.rawValue, forHTTPHeaderField: HTTPHeaders.accept.rawValue)
-        request.addValue("Bearer \(token.accessToken)", forHTTPHeaderField: HTTPHeaders.authorization.rawValue)
+        request.addValue("application/json", forHTTPHeaderField: "accept")
+        request.addValue("Bearer \(token.accessToken)", forHTTPHeaderField: "Authorization")
         
         do {
             let trips = try await performNetworkRequest(request, responseType: [Trip].self)
@@ -200,8 +187,8 @@ class JournalServiceLive: JournalService {
         
         var requestURL = URLRequest(url: EndPoints.handleTrip("\(id)").url)
         requestURL.httpMethod = HTTPMethods.GET.rawValue
-        requestURL.addValue(MIMEType.JSON.rawValue, forHTTPHeaderField: HTTPHeaders.accept.rawValue)
-        requestURL.addValue("Bearer \(token.accessToken)", forHTTPHeaderField: HTTPHeaders.authorization.rawValue)
+        requestURL.addValue("application/json", forHTTPHeaderField: "accept")
+        requestURL.addValue("Bearer \(token.accessToken)", forHTTPHeaderField: "Authorization")
         
         let trip = try await performNetworkRequest(requestURL, responseType: Trip.self)
         
@@ -215,20 +202,19 @@ class JournalServiceLive: JournalService {
         
         var requestURL = URLRequest(url: EndPoints.handleTrip("\(id)").url)
         requestURL.httpMethod = HTTPMethods.PUT.rawValue
-        requestURL.addValue(MIMEType.JSON.rawValue, forHTTPHeaderField: HTTPHeaders.accept.rawValue)
-        requestURL.addValue("Bearer \(token.accessToken)", forHTTPHeaderField: HTTPHeaders.authorization.rawValue)
-        requestURL.addValue(MIMEType.JSON.rawValue, forHTTPHeaderField: HTTPHeaders.contentType.rawValue)
+        requestURL.addValue("application/json", forHTTPHeaderField: "accept")
+        requestURL.addValue("Bearer \(token.accessToken)", forHTTPHeaderField: "Authorization")
+        requestURL.addValue("application/json", forHTTPHeaderField: "Content-Type")
         
         let dateFormatter = ISO8601DateFormatter()
         dateFormatter.formatOptions = .withInternetDateTime
         
-        var tripUpdate: [String: Any] = [
-            "name": trip.name,
-            "start_date": dateFormatter.string(from: trip.startDate),
-            "end_date": dateFormatter.string(from: trip.endDate),
-        ]
+        let tripData = TripRequest(name: trip.name,
+                                   startDate: dateFormatter.string(from: trip.startDate),
+                                   endDate: dateFormatter.string(from: trip.endDate))
         
-        requestURL.httpBody = try JSONSerialization.data(withJSONObject: tripUpdate)
+        requestURL.httpBody = try JSONEncoder().encode(tripData)
+        
         return try await performNetworkRequest(requestURL, responseType: Trip.self)
     }
 
@@ -239,8 +225,8 @@ class JournalServiceLive: JournalService {
         
         var request = URLRequest(url: EndPoints.handleTrip("\(id)").url)
         request.httpMethod = HTTPMethods.DELETE.rawValue
-        request.addValue("*/*", forHTTPHeaderField: HTTPHeaders.accept.rawValue)
-        request.addValue("Bearer \(token.accessToken)", forHTTPHeaderField: HTTPHeaders.authorization.rawValue)
+        request.addValue("*/*", forHTTPHeaderField: "accept")
+        request.addValue("Bearer \(token.accessToken)", forHTTPHeaderField: "Authorization")
         
         try await performVoidNetworkRequest(request)
     }
@@ -252,25 +238,22 @@ class JournalServiceLive: JournalService {
         
         var requestURL = URLRequest(url: EndPoints.events.url)
         requestURL.httpMethod = HTTPMethods.POST.rawValue
-        requestURL.addValue(MIMEType.JSON.rawValue, forHTTPHeaderField: HTTPHeaders.accept.rawValue)
-        requestURL.addValue("Bearer \(token.accessToken)", forHTTPHeaderField: HTTPHeaders.authorization.rawValue)
-        requestURL.addValue(MIMEType.JSON.rawValue, forHTTPHeaderField: HTTPHeaders.contentType.rawValue)
+        requestURL.addValue("application/json", forHTTPHeaderField: "accept")
+        requestURL.addValue("Bearer \(token.accessToken)", forHTTPHeaderField: "Authorization")
+        requestURL.addValue("application/json", forHTTPHeaderField: "Content-Type")
         
         let dateFormatter = ISO8601DateFormatter()
         dateFormatter.formatOptions = .withInternetDateTime
         
-        let eventData: [String: Any] = [
-            "trip_id": event.tripId,
-            "name": event.name,
-            "date": dateFormatter.string(from: event.date),
-            "location": [
-                "latitude": event.location?.latitude ?? 0,
-                "longitude": event.location?.longitude ?? 0,
-                "address": event.location?.address ?? ""
-            ],
-            "transition_from_previous": event.transitionFromPrevious ?? ""
-        ]
-        requestURL.httpBody = try JSONSerialization.data(withJSONObject: eventData)
+        let eventData = EventRequest(tripId: event.tripId,
+                                     name: event.name,
+                                     date: dateFormatter.string(from: event.date),
+                                     location: Location(latitude: event.location?.latitude ?? 0,
+                                                        longitude: event.location?.longitude ?? 0,
+                                                        address: event.location?.address ?? ""),
+                                     transitionFromPrevious: event.transitionFromPrevious ?? "")
+        
+        requestURL.httpBody = try JSONEncoder().encode(eventData)
         
         return try await performNetworkRequest(requestURL, responseType: Event.self)
     }
@@ -283,24 +266,22 @@ class JournalServiceLive: JournalService {
         var request = URLRequest(url: EndPoints.handleEvent("\(id)").url)
         
         request.httpMethod = HTTPMethods.PUT.rawValue
-        request.addValue(MIMEType.JSON.rawValue, forHTTPHeaderField: HTTPHeaders.accept.rawValue)
-        request.addValue("Bearer \(token.accessToken)", forHTTPHeaderField: HTTPHeaders.authorization.rawValue)
-        request.addValue(MIMEType.JSON.rawValue, forHTTPHeaderField: HTTPHeaders.contentType.rawValue)
+        request.addValue("application/json", forHTTPHeaderField: "accept")
+        request.addValue("Bearer \(token.accessToken)", forHTTPHeaderField: "Authorization")
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
         
         let dateFormatter = ISO8601DateFormatter()
         dateFormatter.formatOptions = .withInternetDateTime
         
-        let eventData: [String: Any] = [
-            "name": event.name,
-            "date": dateFormatter.string(from: event.date),
-            "location": [
-                "latitude": event.location?.latitude ?? 0,
-                "longitude": event.location?.longitude ?? 0,
-                "address": event.location?.address ?? ""
-            ],
-            "transition_from_previous": event.transitionFromPrevious ?? ""
-        ]
-        request.httpBody = try JSONSerialization.data(withJSONObject: eventData)
+        let eventData = EventRequest(tripId: nil,
+                                     name: event.name,
+                                     date: dateFormatter.string(from: event.date),
+                                     location: Location(latitude: event.location?.latitude ?? 0,
+                                                        longitude: event.location?.longitude ?? 0,
+                                                        address: event.location?.address ?? ""),
+                                     transitionFromPrevious: event.transitionFromPrevious ?? "")
+        
+        request.httpBody = try JSONEncoder().encode(eventData)
         
         return try await performNetworkRequest(request, responseType: Event.self)
     }
@@ -313,8 +294,8 @@ class JournalServiceLive: JournalService {
         var request = URLRequest(url: EndPoints.handleEvent("\(id)").url)
         
         request.httpMethod = HTTPMethods.DELETE.rawValue
-        request.addValue("*/*", forHTTPHeaderField: HTTPHeaders.accept.rawValue)
-        request.addValue("Bearer \(token.accessToken)", forHTTPHeaderField: HTTPHeaders.authorization.rawValue)
+        request.addValue("*/*", forHTTPHeaderField: "accept")
+        request.addValue("Bearer \(token.accessToken)", forHTTPHeaderField: "Authorization")
         
         try await performVoidNetworkRequest(request)
     }
@@ -327,15 +308,12 @@ class JournalServiceLive: JournalService {
         var requestURL = URLRequest(url: EndPoints.media.url)
         
         requestURL.httpMethod = HTTPMethods.POST.rawValue
-        requestURL.addValue(MIMEType.JSON.rawValue, forHTTPHeaderField: HTTPHeaders.accept.rawValue)
-        requestURL.addValue("Bearer \(token.accessToken)", forHTTPHeaderField: HTTPHeaders.authorization.rawValue)
-        requestURL.addValue(MIMEType.JSON.rawValue, forHTTPHeaderField: HTTPHeaders.contentType.rawValue)
+        requestURL.addValue("application/json", forHTTPHeaderField: "accept")
+        requestURL.addValue("Bearer \(token.accessToken)", forHTTPHeaderField: "Authorization")
+        requestURL.addValue("application/json", forHTTPHeaderField: "Content-Type")
         
-        let mediaData: [String: Any] = [
-            "base64_data": media.base64Data.base64EncodedString(),
-            "event_id": media.eventId
-        ]
-        requestURL.httpBody = try JSONSerialization.data(withJSONObject: mediaData)
+        let mediaData = MediaRequest(base64Data: media.base64Data.base64EncodedString(), eventId: media.eventId)
+        requestURL.httpBody = try JSONEncoder().encode(mediaData)
         
         return try await performNetworkRequest(requestURL, responseType: Media.self)
     }
@@ -348,8 +326,8 @@ class JournalServiceLive: JournalService {
         var request = URLRequest(url: EndPoints.handleMedia("\(id)").url)
         
         request.httpMethod = HTTPMethods.DELETE.rawValue
-        request.addValue("*/*", forHTTPHeaderField: HTTPHeaders.accept.rawValue)
-        request.addValue("Bearer \(token.accessToken)", forHTTPHeaderField: HTTPHeaders.authorization.rawValue)
+        request.addValue("*/*", forHTTPHeaderField: "accept")
+        request.addValue("Bearer \(token.accessToken)", forHTTPHeaderField: "Authorization")
         
         try await performVoidNetworkRequest(request)
     }
@@ -372,13 +350,13 @@ extension JournalServiceLive {
         return expirationDate <= Date()
     }
     
-    private func createRegisterRequest(username: String, password: String) throws -> URLRequest {
+    private func createRegisterRequest(fullname: String, email: String, username: String, password: String) throws -> URLRequest {
         var request = URLRequest(url: EndPoints.register.url)
         request.httpMethod = HTTPMethods.POST.rawValue
-        request.addValue(MIMEType.JSON.rawValue, forHTTPHeaderField: HTTPHeaders.accept.rawValue)
-        request.addValue(MIMEType.JSON.rawValue, forHTTPHeaderField: HTTPHeaders.contentType.rawValue)
+        request.addValue("application/json", forHTTPHeaderField: "accept")
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let registerRequest = LoginRequest(username: username, password: password)
+        let registerRequest = RegisterRequest(fullname: fullname, email: email, username: username, password: password)
         request.httpBody = try JSONEncoder().encode(registerRequest)
 
         return request
@@ -387,8 +365,8 @@ extension JournalServiceLive {
     private func createLoginRequest(username: String, password: String) throws -> URLRequest {
         var request = URLRequest(url: EndPoints.login.url)
         request.httpMethod = HTTPMethods.POST.rawValue
-        request.addValue(MIMEType.JSON.rawValue, forHTTPHeaderField: HTTPHeaders.accept.rawValue)
-        request.addValue(MIMEType.form.rawValue, forHTTPHeaderField: HTTPHeaders.contentType.rawValue)
+        request.addValue("application/json", forHTTPHeaderField: "accept")
+        request.addValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
 
         let loginData = "grant_type=&username=\(username)&password=\(password)"
         request.httpBody = loginData.data(using: .utf8)
@@ -424,31 +402,6 @@ extension JournalServiceLive {
         guard let httpResponse = response as? HTTPURLResponse,
               httpResponse.statusCode == 200 || httpResponse.statusCode == 204 else {
             throw NetworkError.badResponse
-        }
-    }
-    
-    func simplePostRequest() async {
-        guard let url = URL(string: "http://localhost:8000/register") else { return }
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("application/json", forHTTPHeaderField: "accept")
-
-        let body: [String: Any] = ["username": "teste", "password": "123456"]
-        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
-
-        do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-
-            if let httpResponse = response as? HTTPURLResponse {
-                print("Status code: \(httpResponse.statusCode)")
-                if let responseBody = String(data: data, encoding: .utf8) {
-                    print("Response: \(responseBody)")
-                }
-            }
-        } catch {
-            print("Error: \(error.localizedDescription)")
         }
     }
 }
